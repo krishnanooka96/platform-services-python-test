@@ -38,6 +38,6 @@ class CustomersRewardsHandler(tornado.web.RequestHandler):
         db = client["Rewards"]
 
         # Retrieve rewards data for all customers
-        rewards_data = list(db.rewards.find({}, {"_id": 0}))
+        rewards_data = list(db.customers.find({}, {"_id": 0}))
 
         return rewards_data

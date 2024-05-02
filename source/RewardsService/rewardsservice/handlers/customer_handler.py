@@ -11,7 +11,7 @@ class CustomerHandler(tornado.web.RequestHandler):
     """
 
     @coroutine
-    def get(self):
+    def get(self, email):
         """
         GET method to retrieve a customer's rewards data.
 
@@ -23,8 +23,6 @@ class CustomerHandler(tornado.web.RequestHandler):
         - 400 Bad Request: Missing or invalid email address
         - 404 Not Found: Customer not found
         """
-        # Get email from request arguments
-        email = self.get_argument("email", default=None)
 
         # Validate email
         if not email or not self._is_valid_email(email):
@@ -59,7 +57,7 @@ class CustomerHandler(tornado.web.RequestHandler):
         db = client["Rewards"]
 
         # Query MongoDB to retrieve customer rewards data
-        reward = db.rewards.find_one({"email": email}, {"_id": 0})
+        reward = list(db.customers.find({"email": email}, {"_id": 0}))
 
         return reward
 

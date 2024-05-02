@@ -46,7 +46,13 @@ class OrderHandler(tornado.web.RequestHandler):
         Returns:
             None
         """
-        data = json.loads(self.request.body)
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write("Invalid JSON format in the request body.")
+            return
+        
         email = data.get("email")
         total_amount = data.get("total_amount")
 
@@ -58,32 +64,39 @@ class OrderHandler(tornado.web.RequestHandler):
 
         # Calculate reward points
         reward_points = int(total_amount)
-        rewards_tier = chr(65 + (reward_points - 1) // 100)
-        reward_tier_name = f"{(reward_points - 1) % 100}% off purchase"
-        next_reward_tier = (
-            chr(65 + reward_points // 100 + 1) if reward_points < 1000 else None
-        )
-        next_reward_tier_name = (
-            f"{(reward_points % 100)}% off purchase" if next_reward_tier else None
-        )
-        next_reward_tier_progress = (
-            (reward_points % 100) / 100 if next_reward_tier else None
-        )
-
-        # Connect to MongoDB
+        
+        # Retrieve rewards data from MongoDB
         client = MongoClient("mongodb", 27017)
         db = client["Rewards"]
+        rewards = list(db.rewards.find({}, {"_id": 0}))
+        
+        # Calculate reward tier
+        reward_tier = None
+        reward_tier_name = None
+        next_reward_tier = None
+        next_reward_tier_name = None
+        next_reward_tier_progress = None
+
+        for reward in rewards:
+            if reward_points >= reward["points"]:
+                reward_tier = reward["tier"]
+                reward_tier_name = reward["rewardName"]
+            else:
+                next_reward_tier = reward["tier"]
+                next_reward_tier_name = reward["rewardName"]
+                next_reward_tier_progress = min(reward_points / reward["points"], 1.0)
+                break
 
         # Store rewards data
         db.customers.insert_one(
             {
                 "email": email,
                 "reward_points": reward_points,
-                "reward_tier": rewards_tier,
+                "reward_tier": reward_tier,
                 "reward_tier_name": reward_tier_name,
                 "next_reward_tier": next_reward_tier,
                 "next_reward_tier_name": next_reward_tier_name,
-                "next_reward_tier_progress": next_reward_tier_progress,
+                "next_reward_tier_progress": next_reward_tier_progress
             }
         )
 
